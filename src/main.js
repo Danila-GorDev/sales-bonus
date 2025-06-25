@@ -121,26 +121,26 @@ function analyzeSalesData(data, options) {
             seller.profit += profit;
 
             if (!seller.products_sold[item.sku]) {
-                seller.products_sold[item.sku] = {
-                count: 0,
-                total_revenue: 0,
-                total_cost: 0,
-                total_profit: 0
-            };
+                seller.products_sold[item.sku] = 0;
         }
 
             seller.products_sold[item.sku].count += item.quantity;
-        seller.products_sold[item.sku].total_revenue += revenue;
-        seller.products_sold[item.sku].total_cost += cost;
-        seller.products_sold[item.sku].total_profit += profit;
         });
     });
 
     // @TODO: Сортировка продавцов по прибыли
 
     sellerStats.sort((a, b) => {
-        if (b.profit !== a.profit) return b.profit - a.profit;
-        return a.id.localeCompare(b.id);
+         if (a.profit !== b.profit) {
+        return b.profit - a.profit;
+    }
+    // При равной прибыли сортируем по выручке
+    if (a.revenue !== b.revenue) {
+        return b.revenue - a.revenue;
+    }
+    
+    // При равных показателях сортируем по количеству продаж
+    return b.sales_count - a.sales_count;
     });
 
     // @TODO: Назначение премий на основе ранжирования
@@ -174,11 +174,11 @@ function analyzeSalesData(data, options) {
      return sellerStats.map(seller => ({
         seller_id: seller.id,
         name: seller.name,
-        revenue: Math.round(seller.revenue * 100) / 100,
-        profit: Math.round(seller.profit * 100) / 100,
-        sales_count: seller.sales_count,
+        revenue: parseFloat(seller.revenue.toFixed(2)),
+         profit: parseFloat(seller.profit.toFixed(2)),
+        sales_count: Math.round(seller.sales_count),
         top_products: seller.top_products,
-        bonus: Math.round(seller.bonus * 100) / 100
+        bonus: parseFloat(seller.bonus.toFixed(2))
     }));
 }
 
