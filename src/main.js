@@ -100,6 +100,7 @@ function analyzeSalesData(data, options) {
 
     const productIndex = Object.fromEntries(data.products.map(item => [item.sku, item]));
 
+    
 
 
     // @TODO: Расчет выручки и прибыли для каждого продавца
@@ -114,15 +115,24 @@ function analyzeSalesData(data, options) {
             if (!product) return;
 
             const cost = product.purchase_price * item.quantity;
-            const revenue = calculateRevenue(item, product);
+            const revenue = calculateRevenue(item);
             seller.revenue += revenue;
-            const itemProfit = revenue - cost;
-            seller.profit += itemProfit;
+            const profit = revenue - cost;
+            seller.profit += profit;
 
             if (!seller.products_sold[item.sku]) {
-                seller.products_sold[item.sku] = 0;
-            }
-            seller.products_sold[item.sku] += item.quantity;
+                seller.products_sold[item.sku] = {
+                count: 0,
+                total_revenue: 0,
+                total_cost: 0,
+                total_profit: 0
+            };
+        }
+
+            seller.products_sold[item.sku].count += item.quantity;
+        seller.products_sold[item.sku].total_revenue += revenue;
+        seller.products_sold[item.sku].total_cost += cost;
+        seller.products_sold[item.sku].total_profit += profit;
         });
     });
 
@@ -138,14 +148,26 @@ function analyzeSalesData(data, options) {
     const totalSellers = sellerStats.length;
     sellerStats.forEach((seller, index) => {
         seller.bonus = calculateBonus(index, totalSellers, seller);
-        seller.top_products = Object.entries(seller.products_sold)
-            .map(([sku, quantity]) => ({ sku, quantity }))
-            .sort((a, b) => {
-                if (b.quantity !== a.quantity) return b.quantity - a.quantity;
-                return a.sku.localeCompare(b.sku);
-            })
-            .slice(0, 10);
-    });
+        seller.top_products = seller.top_products = getTopProducts(seller.products_sold);
+});
+    
+    
+    function getTopProducts(products_sold) {
+    // Преобразуем объект в массив и сортируем по выручке
+    const productsArray = Object.entries(products_sold).map(([sku, stats]) => ({
+        sku: sku,
+        count: stats.count,
+        total_revenue: stats.total_revenue,
+        total_profit: stats.total_profit
+    }));
+
+    // Сортируем по убыванию выручки
+    productsArray.sort((a, b) => b.total_revenue - a.total_revenue);
+
+    // Возвращаем топ-10 товаров
+    return productsArray.slice(0, 10);
+}
+
 
     // @TODO: Подготовка итоговой коллекции с нужными полями
 
