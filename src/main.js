@@ -7,9 +7,21 @@
 function calculateSimpleRevenue(purchase, _product) {
    // @TODO: Расчет прибыли от операции
 
-   const discount = 1 - (purchase.discount / 100);
-    return purchase.sale_price * purchase.quantity * discount;
+    // Разрушаем объект purchase, получая необходимые параметры
+    const { discount, sale_price, quantity } = purchase;
+    
+    // Расчет базовой выручки без учета скидки
+    const baseRevenue = purchase.sale_price * purchase.quantity;
+    
+    // Расчет суммы скидки
+    const discountAmount = baseRevenue * (purchase.discount / 100);
+    
+    // Расчет итоговой выручки с учетом скидки
+    const finalRevenue = baseRevenue - discountAmount;
+    
+    return finalRevenue;
 }
+
 
 /**
  * Функция для расчета бонусов
@@ -21,10 +33,32 @@ function calculateSimpleRevenue(purchase, _product) {
 function calculateBonusByProfit(index, total, seller) {
     // @TODO: Расчет бонуса от позиции в рейтинге
 
-    if (index === 0) return seller.profit * 0.15;
-    if (index === 1 || index === 2) return seller.profit * 0.10;
-    if (index === total - 1) return 0;
-    return seller.profit * 0.05;
+    // Извлекаем прибыль продавца
+   const { profit } = seller;
+   
+   // Определяем процент бонуса в зависимости от позиции в рейтинге
+   const bonusPercentage = determineBonusPercentage(index, total);
+   
+   // Рассчитываем сумму бонуса
+   const bonusAmount = calculateBonusAmount(profit, bonusPercentage);
+   
+   return bonusAmount;
+}
+
+function determineBonusPercentage(index, total) {
+   // Определяем процент бонуса в зависимости от позиции
+   if (index < total * 0.2) {
+      return 0.15; // 15% для топ-20% продавцов
+   } else if (index < total * 0.5) {
+      return 0.10; // 10% для следующих 30%
+   } else {
+      return 0.05; // 5% для остальных
+   }
+}
+
+function calculateBonusAmount(profit, percentage) {
+   // Рассчитываем сумму бонуса как процент от прибыли
+   return profit * percentage;
 }
 
 /**
@@ -35,9 +69,8 @@ function calculateBonusByProfit(index, total, seller) {
  */
 function analyzeSalesData(data, options) {
     // @TODO: Проверка входных данных
-    if (!data
+    if (!data || !options
         || !Array.isArray(data.sellers) || data.sellers.length === 0 
-        || !Array.isArray(data.products) || data.products.length === 0 
         || !Array.isArray(data.products) || data.products.length === 0 
         || !Array.isArray(data.purchase_records) || data.purchase_records.length === 0) {
         throw new Error('Некорректные входные данные');
