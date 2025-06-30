@@ -7,19 +7,13 @@
 function calculateSimpleRevenue(purchase, _product) {
   // @TODO: Расчет прибыли от операции
 
-  // Разрушаем объект purchase, получая необходимые параметры
-  const { discount, sale_price, quantity } = purchase;
+  // Рассчитываем коэффициент скидки
+    const discount = 1 - (purchase.discount / 100);
+    
+    // Рассчитываем выручку с учётом скидки
+    const revenue = purchase.sale_price * purchase.quantity * discount;
 
-  // Расчет базовой выручки без учета скидки
-  const baseRevenue = purchase.sale_price * purchase.quantity;
-
-  // Расчет суммы скидки
-  const discountAmount = baseRevenue * (purchase.discount / 100);
-
-  // Расчет итоговой выручки с учетом скидки
-  const finalRevenue = baseRevenue - discountAmount;
-
-  return finalRevenue;
+  return revenue;
 }
 
 /**
@@ -31,33 +25,18 @@ function calculateSimpleRevenue(purchase, _product) {
  */
 function calculateBonusByProfit(index, total, seller) {
   // @TODO: Расчет бонуса от позиции в рейтинге
-
-  // Извлекаем прибыль продавца
-  const { profit } = seller;
-
-  // Определяем процент бонуса в зависимости от позиции в рейтинге
-  const bonusPercentage = determineBonusPercentage(index, total);
-
-  // Рассчитываем сумму бонуса
-  const bonusAmount = calculateBonusAmount(profit, bonusPercentage);
-
-  return bonusAmount;
-}
-
-function determineBonusPercentage(index, total) {
-  // Определяем процент бонуса в зависимости от позиции
-  if (index < total * 0.2) {
-    return 0.15; // 15% для топ-20% продавцов
-  } else if (index < total * 0.5) {
-    return 0.1; // 10% для следующих 30%
-  } else {
-    return 0.05; // 5% для остальных
-  }
-}
-
-function calculateBonusAmount(profit, percentage) {
-  // Рассчитываем сумму бонуса как процент от прибыли
-  return profit * percentage;
+    const profit = seller.profit;
+    
+    // Проверяем условия и рассчитываем бонус
+    if (index === 0) { // Первый место (индекс 0)
+        return profit * 0.15; // 15% от прибыли
+    } else if (index === 1 || index === 2) { // Второе или третье место
+        return profit * 0.10; // 10% от прибыли
+    } else if (index === total - 1) { // Последнее место
+        return 0; // Бонус отсутствует
+    } else { // Все остальные позиции
+        return profit * 0.05; // 5% от прибыли
+    }
 }
 
 /**
@@ -102,6 +81,8 @@ function analyzeSalesData(data, options) {
     products_sold: {},
   }));
 
+    console.log(sellerStats);
+
   // @TODO: Индексация продавцов и товаров для быстрого доступа
 
   const sellerIndex = Object.fromEntries(
@@ -109,8 +90,11 @@ function analyzeSalesData(data, options) {
   );
 
   const productIndex = Object.fromEntries(
-    data.products.map((item) => [item.sku, item])
+   data.products.map((item) => [item.sku, item])
   );
+    
+    console.log(sellerIndex);
+    console.log(productIndex);
 
   // @TODO: Расчет выручки и прибыли для каждого продавца
   data.purchase_records.forEach((record) => {
@@ -118,22 +102,26 @@ function analyzeSalesData(data, options) {
     if (!seller) return;
 
     seller.sales_count++;
+    
+    seller.revenue += record.total_amount;
+    
 
     record.items.forEach((item) => {
+
       const product = productIndex[item.sku];
       if (!product) return;
 
       const cost = product.purchase_price * item.quantity;
       const revenue = calculateRevenue(item);
-      seller.revenue += revenue;
       const profit = revenue - cost;
       seller.profit += profit;
+
+      //seller.total_quantity += item.quantity;
 
       if (!seller.products_sold[item.sku]) {
         seller.products_sold[item.sku] = 0;
       }
-
-      seller.products_sold[item.sku].count += item.quantity;
+        seller.products_sold[item.sku] += item.quantity;
     });
   });
 
@@ -154,37 +142,24 @@ function analyzeSalesData(data, options) {
 
   // @TODO: Назначение премий на основе ранжирования
 
-  const totalSellers = sellerStats.length;
+
   sellerStats.forEach((seller, index) => {
-    seller.bonus = calculateBonus(index, totalSellers, seller);
-    seller.top_products = seller.top_products = getTopProducts(
-      seller.products_sold
-    );
+    seller.bonus = calculateBonus(index, sellerStats.length, seller);
+    seller.top_products = Object.entries(seller.products_sold)
+        .map(([sku, quantity]) => ({ sku, quantity })) // Преобразуем в массив объектов {sku, quantity}
+        .sort((a, b) => b.quantity - a.quantity) // Сортируем по убыванию quantity
+        .slice(0, 10); // Оставляем первые 10 элементов
   });
-
-  function getTopProducts(products_sold) {
-    const productsArray = Object.entries(products_sold).map(([sku, stats]) => ({
-      sku: sku,
-      count: stats.count,
-      total_revenue: stats.total_revenue,
-      total_profit: stats.total_profit,
-    }));
-
-    productsArray.sort((a, b) => b.total_revenue - a.total_revenue);
-
-    return productsArray.slice(0, 10);
-  }
 
   // @TODO: Подготовка итоговой коллекции с нужными полями
 
   return sellerStats.map((seller) => ({
     seller_id: seller.id,
     name: seller.name,
-
     revenue: parseFloat(seller.revenue.toFixed(2)),
     profit: parseFloat(seller.profit.toFixed(2)),
     sales_count: Math.round(seller.sales_count),
     top_products: seller.top_products,
-    bonus: parseFloat(seller.bonus.toFixed(2)),
+    bonus: parseFloat(seller.bonus.toFixed(2))
   }));
 }
